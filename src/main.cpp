@@ -2,7 +2,7 @@
 #define _TASK_SLEEP_ON_IDLE_RUN
 #define _TASK_TIMECRITICAL
 #define _TASK_PRIORITY
-#define VERSION "1.0.9"
+#define VERSION "1.1.0"
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -73,125 +73,6 @@ void fGetCO2() {
   }
 }
 
-void fCheckRequestAndResponse() {
-  if (!outletPort.available()) {
-    return;
-  }
-
-  byte requestPacket[50];
-  uint16_t size = 0;
-  uint32_t timestamp = 0;
-  while (true) {
-    if (outletPort.available()) {
-      requestPacket[size] = outletPort.read();
-      size++;
-
-      uint32_t timeDiff = micros() - timestamp;
-      if (timeDiff > 3000 && timeDiff < 4000) {
-        Serial.println("[Error] invalid packet, 1.5ms > timediff < 4ms");
-      }
-
-      timestamp = micros();
-    }
-    else {
-      if (size == 0) {
-        break;
-      }
-      uint32_t timeDiff = micros() - timestamp;
-      if (timeDiff >= 4000) {
-        if (size > 7) {
-          byte packet[8];
-          memcpy(packet, requestPacket, 8);
-          if (packet[0] != SLAVE_ID) {
-            break;
-          }
-
-          byte crcByte[2] = {packet[sizeof(packet) - 2], packet[sizeof(packet) - 1]};
-          uint16_t packetCrc;
-          memcpy(&packetCrc, crcByte, sizeof(packetCrc));
-
-          byte data[sizeof(packet) - 4];
-          memcpy(data, &packet[2], sizeof(data));
-
-          uint16_t recalCrc = crc16.ccitt(data, sizeof(data));
-
-          if (recalCrc != packetCrc) {
-            // crc is not match
-            // response error
-            Serial.println("[Error] Crc is not match");
-            break;
-          }
-          else {
-            Serial.println("[Info] Got valid packet, func: " + String(packet[1], HEX));
-          }
-
-          byte funcCode = packet[1];
-          switch (funcCode) {
-            case 0x04: {
-              float sensors[8];
-              sensors[0] = temperature;
-              sensors[1] = humidity;
-              sensors[2] = vpd;
-              sensors[3] = soilTemperature;
-              sensors[4] = soil;
-              sensors[5] = co2;
-              sensors[6] = par;
-              sensors[7] = parAccumulation;
-#ifdef SG_TEST
-              temperature = 25;
-              humidity = 50;
-              vpd = getVpd(25, 50);
-              soilTemperature = 25.5;
-              soil = 60.5;
-              co2 = 1500;
-              par = 105;
-              parAccumulation = 100;
-
-              sensors[0] = temperature;
-              sensors[1] = humidity;
-              sensors[2] = vpd;
-              sensors[3] = soilTemperature;
-              sensors[4] = soil;
-              sensors[5] = co2;
-              sensors[6] = par;
-              sensors[7] = parAccumulation;
-#endif
-              // response sensors
-              byte packets[100];
-              byte data[100];
-              uint16_t dataIndex = 0;
-              for (uint16_t i = 0; i < sizeof(sensors) / sizeof(sensors[0]); i++) {
-                memcpy(&data[dataIndex], &sensors[i], sizeof(sensors[i]));
-                dataIndex += 4;
-              }
-
-              uint16_t packetSize = generatePacket(packets, SLAVE_ID, 0x04, data, sizeof(sensors));
-              digitalWrite(SG_STATION_DIR_PIN, RS485_SEND_MODE);
-              outletPort.write(packets, packetSize);
-              digitalWrite(SG_STATION_DIR_PIN, RS485_RECV_MODE);
-
-              Serial.print("[Info] write data: ");
-              printBytes(packets, packetSize);
-
-              break;
-            }
-            case 0x17: {
-              // response slave id
-              byte packets[100];
-              byte data[100] = {SLAVE_ID};
-
-              uint16_t packetSize = generatePacket(packets, SLAVE_ID, 0x04, data, 4);
-              outletPort.write(packets, packetSize);
-            }
-          }
-        }
-
-        size = 0;
-      }
-    }
-  }
-}
-
 void fPrintSensor() {
   float sensors[8];
   sensors[0] = temperature;
@@ -219,7 +100,6 @@ Task tGetSoilTemperature(2200L, TASK_FOREVER, &fGetSoilTemperature, &schMain, tr
 Task tGetSoil(2100L, TASK_FOREVER, &fGetSoil, &schMain, true);
 Task tGetPar(1000L, TASK_FOREVER, &fGetPar, &schMain, true);
 Task tGetCO2(2200L, TASK_FOREVER, &fGetCO2, &schMain, true);
-Task tCheckRequestAndResponse(50, TASK_FOREVER, &fCheckRequestAndResponse, &schCom, false);
 
 void fDispatchSensor() {
   float sensors[8];
@@ -231,25 +111,7 @@ void fDispatchSensor() {
   sensors[5] = co2;
   sensors[6] = par;
   sensors[7] = parAccumulation;
-#ifdef SG_TEST
-  temperature = 25;
-  humidity = 50;
-  vpd = getVpd(25, 50);
-  soilTemperature = 25.5;
-  soil = 60.5;
-  co2 = 1500;
-  par = 105;
-  parAccumulation = 100;
 
-  sensors[0] = temperature;
-  sensors[1] = humidity;
-  sensors[2] = vpd;
-  sensors[3] = soilTemperature;
-  sensors[4] = soil;
-  sensors[5] = co2;
-  sensors[6] = par;
-  sensors[7] = parAccumulation;
-#endif
   // response sensors
   byte packets[100];
   byte data[100];
