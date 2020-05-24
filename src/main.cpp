@@ -217,7 +217,7 @@ Task tGetTemperature(2000L, TASK_FOREVER, &fGetTemperature, &schMain, true);
 Task tGetHumidity(2050L, TASK_FOREVER, &fGetHumidity, &schMain, true);
 Task tGetSoilTemperature(2200L, TASK_FOREVER, &fGetSoilTemperature, &schMain, true);
 Task tGetSoil(2100L, TASK_FOREVER, &fGetSoil, &schMain, true);
-Task tGetPar(2150L, TASK_FOREVER, &fGetPar, &schMain, true);
+Task tGetPar(1000L, TASK_FOREVER, &fGetPar, &schMain, true);
 Task tGetCO2(2200L, TASK_FOREVER, &fGetCO2, &schMain, true);
 Task tCheckRequestAndResponse(50, TASK_FOREVER, &fCheckRequestAndResponse, &schCom, false);
 
