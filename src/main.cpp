@@ -53,7 +53,7 @@ void fGetHumidity() {
 }
 
 void fGetSoilTemperature() {
-  soilTemperature = soilSensor.readTemperatureC();
+  soilTemperature = soilSensor.readTemperatureC() - 3;
 }
 
 void fGetSoil() {
